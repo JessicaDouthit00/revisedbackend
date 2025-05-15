@@ -1,10 +1,8 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_file
 import csv
 import os
 
 app = Flask(__name__)
-CORS(app)  # Allow requests from other domains (e.g., your GitHub Pages site)
 
 @app.route('/submit', methods=['POST'])
 def submit():
@@ -13,7 +11,7 @@ def submit():
     message = request.form.get('message')
     form_type = request.form.get('form_type')  # "info" or "participant"
 
-    # Choose the appropriate CSV file
+    # Choose CSV file
     if form_type == "participant":
         filename = "participant_signups.csv"
     else:
@@ -21,17 +19,28 @@ def submit():
 
     file_exists = os.path.isfile(filename)
 
-    with open(filename, 'a', newline='', encoding='utf-8') as csvfile:
+    with open(filename, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         if not file_exists:
-            writer.writerow(['Name', 'Email', 'Message'])
-        writer.writerow([name, email, message])
+            writer.writerow(['Name', 'Email', 'Message'])  # header
+        writer.writerow([name, email, message])            # data row
 
     return jsonify({'status': 'success'}), 200
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    # Only allow valid CSV files to be downloaded
+    if filename in ['info_signups.csv', 'participant_signups.csv']:
+        return send_file(filename, as_attachment=True)
+    return jsonify({'error': 'File not found'}), 404
 
 @app.route('/')
 def index():
     return 'Form backend is running.'
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
+
 
 if __name__ == '__main__':
     # Use the PORT provided by the hosting platform (like Render)
