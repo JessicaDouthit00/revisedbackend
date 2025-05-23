@@ -1,8 +1,14 @@
+
 from flask import Flask, request, jsonify, send_file
 import csv
 import os
 
 app = Flask(__name__)
+
+# Store files in /tmp which is writable in Render and safe for temporary file storage
+STORAGE_DIR = "/tmp"
+INFO_FILE = os.path.join(STORAGE_DIR, "info_signups.csv")
+PARTICIPANT_FILE = os.path.join(STORAGE_DIR, "participant_signups.csv")
 
 @app.route('/submit', methods=['POST'])
 def submit():
@@ -11,11 +17,11 @@ def submit():
     message = request.form.get('message')
     form_type = request.form.get('form_type')  # "info" or "participant"
 
-    # Choose CSV file
+    # Choose correct file path
     if form_type == "participant":
-        filename = "participant_signups.csv"
+        filename = PARTICIPANT_FILE
     else:
-        filename = "info_signups.csv"
+        filename = INFO_FILE
 
     file_exists = os.path.isfile(filename)
 
@@ -29,20 +35,23 @@ def submit():
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    # Only allow valid CSV files to be downloaded
-    if filename in ['info_signups.csv', 'participant_signups.csv']:
-        return send_file(filename, as_attachment=True)
-    return jsonify({'error': 'File not found'}), 404
+    if filename == 'info_signups.csv':
+        path = INFO_FILE
+    elif filename == 'participant_signups.csv':
+        path = PARTICIPANT_FILE
+    else:
+        return jsonify({'error': 'File not found'}), 404
+
+    if not os.path.isfile(path):
+        return jsonify({'error': 'File not found on server'}), 404
+
+    return send_file(path, as_attachment=True)
 
 @app.route('/')
 def index():
     return 'Form backend is running.'
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
-
-
-if __name__ == '__main__':
-    # Use the PORT provided by the hosting platform (like Render)
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
+
